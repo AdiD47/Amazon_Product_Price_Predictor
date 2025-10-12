@@ -252,12 +252,12 @@ Our XGBoost-based solution leverages comprehensive text feature engineering to p
 
 ## Technical Stack
 
-- **Language**: Python 3.7+
+- **Language**: Python 3.9+
 - **Core Libraries**:
-  - XGBoost 1.5+ (model)
-  - Scikit-learn 1.0+ (feature engineering)
-  - Pandas 1.3+ (data handling)
-  - NumPy 1.21+ (numerical operations)
+  - XGBoost 2.0+ (model)
+  - Scikit-learn 1.3+ (feature engineering)
+  - Pandas 2.0+ (data handling)
+  - NumPy 1.24+ (numerical operations)
 - **License**: All MIT/Apache 2.0/BSD open source
 
 ---

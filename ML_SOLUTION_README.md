@@ -54,10 +54,10 @@ pip install -r requirements.txt
 ```
 
 Required packages:
-- numpy >= 1.21.0
-- pandas >= 1.3.0
-- scikit-learn >= 1.0.0
-- xgboost >= 1.5.0
+- numpy >= 1.24.0
+- pandas >= 2.0.0
+- scikit-learn >= 1.3.0
+- xgboost >= 2.0.0
 
 ## Usage
 

@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-"""
-Quick test script using sample_test.csv to verify the pipeline works.
-"""
+
 
 import pandas as pd
 import numpy as np

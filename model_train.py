@@ -3,7 +3,7 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import KFold
 from typing import Tuple, Dict
-from uitil import calculate_smape
+from uitil import calculate_regression_metrics
 
 
 class XGBoostPricePredictor:
@@ -40,7 +40,7 @@ class XGBoostPricePredictor:
         """
         kfold = KFold(n_splits=self.n_folds, shuffle=True, random_state=42)
         self.oof_predictions = np.zeros(len(X))
-        fold_scores = []
+        fold_metrics = []
 
         print(f"\nTraining XGBoost with {self.n_folds}-Fold Cross-Validation...")
         print(f"Dataset size: {len(X)} samples, {X.shape[1]} features")
@@ -70,27 +70,35 @@ class XGBoostPricePredictor:
 
             self.oof_predictions[val_idx] = val_predictions
 
-            fold_smape = calculate_smape(y_val_fold, val_predictions)
-            fold_scores.append(fold_smape)
+            metrics = calculate_regression_metrics(y_val_fold, val_predictions)
+            fold_metrics.append(metrics)
 
-            print(f"Fold {fold} SMAPE: {fold_smape:.6f}")
+            print(f"Fold {fold} SMAPE: {metrics['smape']:.4f} | MAE: {metrics['mae']:.4f} | RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
             print(f"Best iteration: {model.best_iteration}")
 
             self.models.append(model)
 
-        overall_smape = calculate_smape(y, self.oof_predictions)
+        overall_metrics = calculate_regression_metrics(y, self.oof_predictions)
 
         print(f"\n{'='*50}")
         print(f"Cross-Validation Results:")
         print(f"{'='*50}")
-        print(f"Mean SMAPE: {np.mean(fold_scores):.6f}")
-        print(f"Std SMAPE: {np.std(fold_scores):.6f}")
-        print(f"Overall OOF SMAPE: {overall_smape:.6f}")
+        
+        # Calculate and print mean and std for each metric
+        for metric_name in fold_metrics[0].keys():
+            mean_metric = np.mean([m[metric_name] for m in fold_metrics])
+            std_metric = np.std([m[metric_name] for m in fold_metrics])
+            print(f"Mean {metric_name.upper()}: {mean_metric:.4f} (±{std_metric:.4f})")
+
+        print(f"\nOverall OOF Metrics:")
+        for name, value in overall_metrics.items():
+            print(f"  - {name.upper()}: {value:.4f}")
+        
         print(f"{'='*50}\n")
 
         self._calculate_feature_importance(X)
 
-        return overall_smape, self.oof_predictions
+        return overall_metrics, self.oof_predictions
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
