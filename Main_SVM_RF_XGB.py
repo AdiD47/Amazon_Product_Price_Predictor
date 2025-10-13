@@ -53,7 +53,7 @@ def train_svm_model(X_train, y_train):
     print("Training LinearSVR...")
     svm_model = LinearSVR(epsilon=0.1, C=1.0, max_iter=10000, random_state=42)
     svm_model.fit(X_train, y_train)
-    print("LinearSVR training done.")
+    print("LinearSVR training done...")
     return svm_model
 
 
@@ -62,8 +62,10 @@ def train_rf_model(X_train, y_train):
     """
     Train Random Forest model.
     """
+    print("Training RF...")
     rf_model = RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=-1)
     rf_model.fit(X_train, y_train)
+    print("RF training done...")
     return rf_model
 
 
@@ -71,6 +73,7 @@ def train_xgboost_model(X_train, y_train, params=None, n_folds=5):
     """
     Train XGBoost model using ensemble learning from SVM and RF predictions.
     """
+    print("Training XGB...")
     model = XGBRegressor(
         objective='reg:squarederror',
         eval_metric='rmse',
@@ -88,6 +91,7 @@ def train_xgboost_model(X_train, y_train, params=None, n_folds=5):
         tree_method='hist'
     )
     model.fit(X_train, y_train)
+    print("XGB training done...")
     return model
 
 
