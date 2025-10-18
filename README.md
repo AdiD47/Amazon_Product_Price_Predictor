@@ -54,3 +54,5 @@ python main.py
 - XGBoost regression with K-Fold cross-validation
 - Log transformation for target variable
 - SMAPE, MAE, RMSE, and R² evaluation metrics
+
+  ## U MAY FIND THE PROBLEM STATEMENT IN problem_statement.md
