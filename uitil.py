@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import math
 
 
 def parse_catalog_content(text: str) -> Dict[str, str]:
@@ -162,7 +163,8 @@ def calculate_smape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     numerator = np.abs(y_pred - y_true)
     denominator = (np.abs(y_true) + np.abs(y_pred)) / 2
-    return np.mean(np.abs(y_pred - y_true) / denominator) * 100
+    smape = np.mean(numerator / denominator) * 100
+    return math.isclose(smape, 0.0, abs_tol=1e-9) and 0.0 or smape
 
 
 def calculate_regression_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:

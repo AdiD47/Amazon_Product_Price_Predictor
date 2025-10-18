@@ -10,7 +10,7 @@ Predict product prices using catalog content (text descriptions and metadata) an
 ## 1. Methodology
 
 ### Approach
-Our solution employs a **text-based machine learning approach** using XGBoost regression with extensive feature engineering from product catalog content. We focus exclusively on text-derived features, extracting meaningful patterns from item names, descriptions, and metadata.
+Our solution employs a **text-based machine learning approach** using XGBoost regression with enhanced feature engineering from product catalog content. We combine TF‑IDF (with optional SVD reduction), SentenceTransformer embeddings, standardized numeric features, and robust categorical encodings extracted from item names, descriptions, and metadata.
 
 ### Why This Approach?
 - **Text-rich data**: Product catalogs contain rich semantic information about pricing factors
@@ -57,14 +57,18 @@ Our solution employs a **text-based machine learning approach** using XGBoost re
 - Description length
 - Bullet points length
 
-### 3.2 TF-IDF Features (Top 100)
+### 3.2 TF-IDF + SVD Features
 **Text Vectorization**:
 - N-grams: 1-2 (captures phrases like "organic coffee")
 - Stop words removed (English)
 - Min document frequency: 2
 - Max document frequency: 95%
+- Max features: up to 2,000
 
-**Purpose**: Captures product-specific keywords that correlate with price (e.g., "premium", "organic", "pack of")
+**Dimensionality Reduction (optional)**:
+- TruncatedSVD components: up to 100 (tuned)
+
+**Purpose**: Captures product-specific keywords and phrases while providing a compact, denoised representation that improves generalization and downstream model stability.
 
 ### 3.3 Numeric Features
 **Extracted from text**:
@@ -101,14 +105,27 @@ Our solution employs a **text-based machine learning approach** using XGBoost re
 - ipq_value (normalized quantity)
 - has_image (binary flag)
 
-**Total Feature Count**: ~130 features
-- TF-IDF: 100 features
-- Text statistics: 5 features
-- Numeric features: 5 features
-- Category flags: 9 features
-- Unit encoding: 1 feature
-- Metadata: 3 features
-- Additional derived: ~7 features
+### 3.7 Text Embeddings
+**Model**: SentenceTransformer `all-MiniLM-L6-v2`
+- Embedding dimension: 384
+- Text input: concatenation of item_name + description
+- L2 normalization applied
+
+**Rationale**: Provides dense semantic signals complementary to TF‑IDF n‑gram cues (brand/style/quality semantics).
+
+### 3.8 Normalization & Scaling
+- Standardize continuous features: text_length, word_count, item_name_length, description_length, bullet_points_length, log1p(ipq_value)
+- Robust unit encoding: unseen units mapped to `unknown` at inference
+
+**Total Feature Count (typical)**: ~500+ features
+- TF‑IDF SVD: up to 100
+- Embeddings: 384
+- Text statistics: 5
+- Numeric features: 5
+- Category flags: 9
+- Unit encoding: 1
+- Metadata: 3
+- Additional derived: ~7
 
 ---
 
@@ -119,7 +136,8 @@ Our solution employs a **text-based machine learning approach** using XGBoost re
 2. Extract all feature types simultaneously
 3. Handle missing values (fillna strategies)
 4. Normalize text (lowercase, clean)
-5. Encode categorical variables
+5. Encode categorical variables (robust to unseen unit labels)
+6. Scale continuous features with StandardScaler
 
 ### Model Training
 1. **K-Fold Split**: 5-fold stratified cross-validation
@@ -191,11 +209,11 @@ Our solution employs a **text-based machine learning approach** using XGBoost re
 - Better interpretability
 - Lower risk of overfitting with limited data
 
-### Why TF-IDF over Embeddings?
-- Interpretable features (can see which words matter)
-- No pre-training required
-- Works well with product descriptions
-- Computationally efficient
+### Why Combine TF‑IDF and Embeddings?
+- TF‑IDF n‑grams: interpretable lexical cues (e.g., pack sizes, certifications)
+- SVD on TF‑IDF: compact, denoised signals that generalize better
+- Sentence embeddings: semantic understanding beyond exact words/phrases
+- Together: complementary signals improve accuracy and robustness
 
 ---
 
@@ -231,7 +249,7 @@ Our solution employs a **text-based machine learning approach** using XGBoost re
 
 ### Engineering Optimizations
 - Feature selection (remove low-importance features)
-- Dimensionality reduction (PCA on TF-IDF)
+- Further dimensionality reduction experiments (vary SVD components)
 - Stacking with multiple model types
 
 ---
@@ -255,7 +273,8 @@ Our XGBoost-based solution leverages comprehensive text feature engineering to p
 - **Language**: Python 3.9+
 - **Core Libraries**:
   - XGBoost 2.0+ (model)
-  - Scikit-learn 1.3+ (feature engineering)
+  - Scikit-learn 1.3+ (feature engineering: TfidfVectorizer, TruncatedSVD, StandardScaler)
+  - Sentence-Transformers 2.x (embeddings)
   - Pandas 2.0+ (data handling)
   - NumPy 1.24+ (numerical operations)
 - **License**: All MIT/Apache 2.0/BSD open source

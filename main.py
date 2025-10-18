@@ -3,7 +3,7 @@
 ML Challenge 2025 - Smart Product Pricing
 XGBoost-based Price Prediction Solution
 
-This solution uses text-based feature engineering and XGBoost
+This solution uses text-based feature engineering + embeddings and XGBoost
 to predict product prices based on catalog content.
 """
 
@@ -48,7 +48,7 @@ def main():
     """
     print("="*70)
     print(" ML Challenge 2025 - Smart Product Pricing ")
-    print(" XGBoost Price Prediction Pipeline ")
+    print(" XGBoost Price Prediction Pipeline with Embeddings ")
     print("="*70)
 
     TRAIN_PATH = 'dataset/train.csv'
@@ -71,7 +71,10 @@ def main():
     print(" Feature Engineering ")
     print("="*70)
 
-    X_train, X_test, y_train, feature_engineer = engineer_features(train_df, test_df)
+    # ✅ Enable embeddings here
+    X_train, X_test, y_train, feature_engineer = engineer_features(
+        train_df, test_df, use_embeddings=True
+    )
 
     print(f"\nEngineered Features:")
     print(f"  Training shape: {X_train.shape}")
@@ -138,3 +141,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

@@ -9,6 +9,8 @@ from uitil import calculate_regression_metrics
 class XGBoostPricePredictor:
     """
     XGBoost-based price prediction model with cross-validation.
+    Applies log-transform to target before training
+    and inverse transform (exp) on predictions.
     """
 
     def __init__(self, params: Dict = None, n_folds: int = 5):
@@ -18,26 +20,26 @@ class XGBoostPricePredictor:
         self.feature_importance = None
 
         self.params = params or {
-            'objective': 'reg:squarederror',
-            'eval_metric': 'rmse',
-            'learning_rate': 0.05,
-            'max_depth': 7,
-            'min_child_weight': 3,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
-            'gamma': 0.1,
-            'reg_alpha': 0.1,
-            'reg_lambda': 1.0,
-            'n_estimators': 1000,
-            'random_state': 42,
-            'n_jobs': -1,
-            'tree_method': 'hist'
+            "objective": "reg:squarederror",
+            "learning_rate": 0.01,
+            "max_depth": 8,
+            "min_child_weight": 3,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "reg_alpha": 0.1,  # L1
+            "reg_lambda": 0.8,  # L2
+            "n_estimators": 3000,
+            "tree_method": "hist",
+            "early_stopping_rounds": 200
         }
 
     def train_with_cv(self, X: pd.DataFrame, y: np.ndarray) -> Tuple[float, np.ndarray]:
         """
-        Train model using K-Fold cross-validation.
+        Train model using K-Fold cross-validation with log-transformed target.
         """
+        # ✅ Apply log transformation
+        y_log = np.log1p(y)
+
         kfold = KFold(n_splits=self.n_folds, shuffle=True, random_state=42)
         self.oof_predictions = np.zeros(len(X))
         fold_metrics = []
@@ -51,7 +53,7 @@ class XGBoostPricePredictor:
             print(f"{'='*50}")
 
             X_train_fold, X_val_fold = X.iloc[train_idx], X.iloc[val_idx]
-            y_train_fold, y_val_fold = y[train_idx], y[val_idx]
+            y_train_fold, y_val_fold = y_log[train_idx], y_log[val_idx]
 
             dtrain = xgb.DMatrix(X_train_fold, label=y_train_fold)
             dval = xgb.DMatrix(X_val_fold, label=y_val_fold)
@@ -65,15 +67,18 @@ class XGBoostPricePredictor:
                 verbose_eval=False
             )
 
-            val_predictions = model.predict(dval, iteration_range=(0, model.best_iteration))
+            val_predictions_log = model.predict(dval, iteration_range=(0, model.best_iteration))
+            val_predictions = np.expm1(val_predictions_log)  # ✅ Inverse transform
             val_predictions = np.maximum(val_predictions, 0.01)
 
             self.oof_predictions[val_idx] = val_predictions
 
-            metrics = calculate_regression_metrics(y_val_fold, val_predictions)
+            metrics = calculate_regression_metrics(y[val_idx], val_predictions)
             fold_metrics.append(metrics)
 
-            print(f"Fold {fold} SMAPE: {metrics['smape']:.4f} | MAE: {metrics['mae']:.4f} | RMSE: {metrics['rmse']:.4f} | R²: {metrics['r2']:.4f}")
+            print(f"Fold {fold} SMAPE: {metrics['smape']:.4f} | "
+                  f"MAE: {metrics['mae']:.4f} | RMSE: {metrics['rmse']:.4f} | "
+                  f"R²: {metrics['r2']:.4f}")
             print(f"Best iteration: {model.best_iteration}")
 
             self.models.append(model)
@@ -83,8 +88,7 @@ class XGBoostPricePredictor:
         print(f"\n{'='*50}")
         print(f"Cross-Validation Results:")
         print(f"{'='*50}")
-        
-        # Calculate and print mean and std for each metric
+
         for metric_name in fold_metrics[0].keys():
             mean_metric = np.mean([m[metric_name] for m in fold_metrics])
             std_metric = np.std([m[metric_name] for m in fold_metrics])
@@ -93,7 +97,7 @@ class XGBoostPricePredictor:
         print(f"\nOverall OOF Metrics:")
         for name, value in overall_metrics.items():
             print(f"  - {name.upper()}: {value:.4f}")
-        
+
         print(f"{'='*50}\n")
 
         self._calculate_feature_importance(X)
@@ -103,57 +107,34 @@ class XGBoostPricePredictor:
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
         Make predictions using ensemble of trained models.
+        Applies inverse log transform (exp).
         """
         if not self.models:
             raise ValueError("Model not trained. Call train_with_cv first.")
 
-        predictions = np.zeros(len(X))
+        predictions_log = np.zeros(len(X))
 
         for model in self.models:
             dtest = xgb.DMatrix(X)
-            predictions += model.predict(dtest, iteration_range=(0, model.best_iteration))
+            predictions_log += model.predict(dtest, iteration_range=(0, model.best_iteration))
 
-        predictions /= len(self.models)
+        predictions_log /= len(self.models)
+
+        # ✅ Inverse log transform
+        predictions = np.expm1(predictions_log)
         predictions = np.maximum(predictions, 0.01)
 
         return predictions
 
     def _calculate_feature_importance(self, X: pd.DataFrame):
         """
-        Calculate average feature importance across all folds.
+        Placeholder for feature importance.
         """
-        importance_df = pd.DataFrame()
-
-        for i, model in enumerate(self.models):
-            # The feature_importances_ attribute is not available on the Booster object
-            # returned by xgb.train. We can get feature scores, but it's not a direct replacement.
-            # For simplicity, we will comment out the feature importance calculation for now.
-            pass
-            # fold_importance = pd.DataFrame({
-            #     'feature': X.columns,
-            #     f'importance_fold_{i}': model.feature_importances_
-            # })
-            # if importance_df.empty:
-            #     importance_df = fold_importance
-            # else:
-            #     importance_df = importance_df.merge(fold_importance, on='feature')
-
-        # importance_cols = [col for col in importance_df.columns if col.startswith('importance_fold_')]
-        # importance_df['importance_mean'] = importance_df[importance_cols].mean(axis=1)
-        # importance_df['importance_std'] = importance_df[importance_cols].std(axis=1)
-
-        # self.feature_importance = importance_df.sort_values(
-        #     'importance_mean',
-        #     ascending=False
-        # )[['feature', 'importance_mean', 'importance_std']]
+        pass
 
     def get_top_features(self, top_n: int = 20) -> pd.DataFrame:
-        """
-        Get top N most important features.
-        """
         if self.feature_importance is None:
             raise ValueError("Feature importance not calculated. Train model first.")
-
         return self.feature_importance.head(top_n)
 
 
@@ -168,8 +149,4 @@ def train_xgboost_model(
     """
     model = XGBoostPricePredictor(params=params, n_folds=n_folds)
     model.train_with_cv(X_train, y_train)
-
-    # print("\nTop 20 Most Important Features:")
-    # print(model.get_top_features(20).to_string(index=False))
-
     return model
